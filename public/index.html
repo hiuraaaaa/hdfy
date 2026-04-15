@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HDify — AI Image Enhancer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1a1a1f;
+    --border: #2a2a32;
+    --accent: #e0425a;
+    --accent2: #a855f7;
+    --text: #f0f0f2;
+    --muted: #6b6b7a;
+    --muted2: #3a3a45;
+    --success: #22c55e;
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 0 18px 80px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    padding: 22px 0 0;
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 1.2rem; letter-spacing: -0.02em;
+  }
+
+  .hero {
+    text-align: center;
+    padding: 44px 0 32px;
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem; font-weight: 800; line-height: 1.15; letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #fff 40%, var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    margin-bottom: 14px;
+  }
+
+  .hero p {
+    color: var(--muted); font-size: 0.9rem; line-height: 1.6;
+    max-width: 340px; margin: 0 auto 24px;
+  }
+
+  .badges { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+
+  .badge {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 14px;
+    font-size: 0.78rem; color: var(--muted);
+  }
+
+  .badge svg { width: 14px; height: 14px; stroke: var(--accent); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px 20px; margin-bottom: 14px;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--muted2); border-radius: 12px;
+    padding: 40px 20px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative; overflow: hidden;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(224,66,90,0.05);
+  }
+
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0;
+    cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .drop-icon {
+    width: 56px; height: 56px;
+    background: rgba(224,66,90,0.12); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px; transition: background .2s;
+  }
+
+  .drop-zone:hover .drop-icon { background: rgba(224,66,90,0.22); }
+  .drop-icon svg { width: 26px; height: 26px; stroke: var(--accent); }
+
+  .drop-title {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 1.05rem; margin-bottom: 6px;
+  }
+
+  .drop-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+
+  .btn-choose {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 10px; padding: 10px 22px;
+    font-size: 0.85rem; font-family: 'DM Sans', sans-serif; font-weight: 500;
+    pointer-events: none; transition: border-color .2s;
+  }
+
+  .drop-zone:hover .btn-choose { border-color: var(--accent); }
+
+  .preview-wrap {
+    display: none; margin-top: 16px; border-radius: 10px;
+    overflow: hidden; position: relative; background: #111;
+  }
+
+  .preview-wrap.show { display: block; }
+
+  .preview-img-in {
+    width: 100%; max-height: 260px; object-fit: contain; display: block;
+  }
+
+  .preview-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+  }
+
+  .preview-name {
+    font-size: 0.75rem; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;
+  }
+
+  .preview-remove {
+    background: rgba(224,66,90,0.15); border: 1px solid rgba(224,66,90,0.3);
+    border-radius: 6px; color: var(--accent); cursor: pointer;
+    font-size: 0.75rem; padding: 3px 10px; font-family: 'DM Sans', sans-serif;
+    transition: background .2s;
+  }
+
+  .preview-remove:hover { background: rgba(224,66,90,0.3); }
+
+  .btn-enhance {
+    width: 100%; padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #c0324a);
+    border: none; border-radius: 12px; color: #fff;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 1rem; letter-spacing: 0.02em; cursor: pointer;
+    transition: opacity .2s, transform .15s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-top: 4px;
+  }
+
+  .btn-enhance:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+  .btn-enhance:active:not(:disabled) { transform: translateY(0); }
+  .btn-enhance:disabled { opacity: 0.38; cursor: not-allowed; }
+
+  .loading-bar {
+    display: none; height: 3px; background: var(--border);
+    border-radius: 999px; overflow: hidden; margin-top: 14px;
+  }
+
+  .loading-bar.show { display: block; }
+
+  .loading-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+    background-size: 200% 100%;
+    border-radius: 999px;
+    animation: loadbar 1.6s linear infinite;
+    width: 40%;
+  }
+
+  @keyframes loadbar {
+    0% { transform: translateX(-150%); }
+    100% { transform: translateX(400%); }
+  }
+
+  .status-text {
+    text-align: center; font-size: 0.8rem; color: var(--muted);
+    margin-top: 10px; min-height: 20px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+
+  .spinner {
+    display: none; width: 12px; height: 12px;
+    border: 2px solid var(--muted2); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+
+  .spinner.show { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    display: none; background: rgba(224,66,90,0.07);
+    border: 1px solid rgba(224,66,90,0.25); border-radius: 10px;
+    padding: 11px 16px; font-size: 0.82rem; color: #ff7088;
+    margin-top: 12px; line-height: 1.5; white-space: pre-line;
+  }
+
+  .error-box.show { display: block; }
+
+  .result-section { display: none; animation: fadeUp .4s ease; }
+  .result-section.show { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-header {
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 14px;
+  }
+
+  .result-title {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.95rem; display: flex; align-items: center; gap: 8px;
+  }
+
+  .dot-success {
+    width: 8px; height: 8px; background: var(--success);
+    border-radius: 50%; box-shadow: 0 0 10px var(--success);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .result-img {
+    width: 100%; border-radius: 10px; display: block;
+    object-fit: contain; background: #111; max-height: 440px;
+  }
+
+  .compare-wrap { margin-top: 16px; }
+
+  .compare-label {
+    font-size: 0.75rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 8px; display: block;
+  }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .compare-item {
+    border-radius: 8px; overflow: hidden;
+    position: relative; background: #111;
+  }
+
+  .compare-item img { width: 100%; height: 130px; object-fit: cover; display: block; }
+
+  .compare-tag {
+    position: absolute; top: 6px; left: 6px;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    border-radius: 6px; padding: 3px 8px;
+    font-size: 0.68rem; font-weight: 600; color: #fff; letter-spacing: 0.04em;
+  }
+
+  .result-actions { display: flex; gap: 10px; margin-top: 14px; }
+
+  .btn-dl {
+    flex: 1; padding: 13px;
+    background: linear-gradient(135deg, var(--accent), #c0324a);
+    border: none; border-radius: 10px; color: #fff;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem;
+    cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 8px;
+    text-decoration: none; transition: opacity .2s;
+  }
+
+  .btn-dl:hover { opacity: 0.88; }
+
+  .btn-open {
+    padding: 13px 16px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px; color: var(--muted);
+    font-size: 0.88rem; font-family: 'DM Sans', sans-serif; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    text-decoration: none; transition: border-color .2s, color .2s;
+  }
+
+  .btn-open:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  footer {
+    text-align: center; padding-top: 36px;
+    color: var(--muted2); font-size: 0.73rem; letter-spacing: 0.03em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">✦</div>
+      <span class="logo-text">HDify</span>
+    </div>
+  </header>
+
+  <div class="hero">
+    <h1>AI Image<br>Enhancer</h1>
+    <p>Enhance your image to HD quality using advanced AI. Fast, free, no signup needed.</p>
+    <div class="badges">
+      <span class="badge">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Fast Processing
+      </span>
+      <span class="badge">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        HD Output
+      </span>
+      <span class="badge">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+        AI Powered
+      </span>
+    </div>
+  </div>
+
+  <!-- UPLOAD CARD -->
+  <div class="card">
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif">
+      <div class="drop-icon">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+      </div>
+      <div class="drop-title">Upload Your Image</div>
+      <div class="drop-sub">Drag & drop or tap to select<br>JPEG · PNG · WebP · Max 10MB</div>
+      <div class="btn-choose">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Choose Image
+      </div>
+    </div>
+
+    <div class="preview-wrap" id="previewWrap">
+      <img id="previewImg" class="preview-img-in" src="" alt="Preview">
+      <div class="preview-bar">
+        <span class="preview-name" id="previewName">image.jpg</span>
+        <button class="preview-remove" id="removeBtn">✕ Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ENHANCE BTN -->
+  <button class="btn-enhance" id="enhanceBtn" disabled>
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>
+    </svg>
+    Enhance to HD
+  </button>
+
+  <div class="loading-bar" id="loadingBar"><div class="loading-bar-inner"></div></div>
+
+  <div class="status-text">
+    <div class="spinner" id="spinner"></div>
+    <span id="statusMsg"></span>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- RESULT -->
+  <div class="result-section" id="resultSection">
+    <div class="card">
+      <div class="result-header">
+        <div class="result-title">
+          <div class="dot-success"></div>
+          Enhanced Result
+        </div>
+      </div>
+
+      <img id="resultImg" class="result-img" src="" alt="HD Result">
+
+      <div class="compare-wrap">
+        <span class="compare-label">Before / After</span>
+        <div class="compare-grid">
+          <div class="compare-item">
+            <img id="beforeImg" src="" alt="Original">
+            <div class="compare-tag">Original</div>
+          </div>
+          <div class="compare-item">
+            <img id="afterImg" src="" alt="HD">
+            <div class="compare-tag">HD ✦</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-actions">
+        <a id="downloadBtn" class="btn-dl" download="hd-image.png" href="#">
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+          Download HD
+        </a>
+        <a id="openBtn" class="btn-open" target="_blank" href="#">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+          Open
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <footer>Powered by Theresa API &nbsp;·&nbsp; HDify</footer>
+
+</div>
+
+<script>
+// ── ENDPOINTS (proxy, no CORS issue) ──
+const UPLOAD_ENDPOINT  = '/api/upload';
+const ENHANCE_ENDPOINT = '/api/enhance';
+
+// ── ELEMENTS ──
+const dropZone      = document.getElementById('dropZone');
+const fileInput     = document.getElementById('fileInput');
+const previewWrap   = document.getElementById('previewWrap');
+const previewImg    = document.getElementById('previewImg');
+const previewName   = document.getElementById('previewName');
+const removeBtn     = document.getElementById('removeBtn');
+const enhanceBtn    = document.getElementById('enhanceBtn');
+const loadingBar    = document.getElementById('loadingBar');
+const spinner       = document.getElementById('spinner');
+const statusMsg     = document.getElementById('statusMsg');
+const errorBox      = document.getElementById('errorBox');
+const resultSection = document.getElementById('resultSection');
+const resultImg     = document.getElementById('resultImg');
+const downloadBtn   = document.getElementById('downloadBtn');
+const openBtn       = document.getElementById('openBtn');
+const beforeImg     = document.getElementById('beforeImg');
+const afterImg      = document.getElementById('afterImg');
+
+let uploadedUrl  = null;
+let localBlobUrl = null;
+
+// ── DRAG & DROP ──
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) { showError('Please select an image file (JPEG, PNG, WebP).'); return; }
+  if (file.size > 10 * 1024 * 1024) { showError('File too large. Maximum is 10MB.'); return; }
+
+  hideError();
+  resultSection.classList.remove('show');
+  uploadedUrl = null;
+  enhanceBtn.disabled = true;
+
+  if (localBlobUrl) URL.revokeObjectURL(localBlobUrl);
+  localBlobUrl = URL.createObjectURL(file);
+  previewImg.src = localBlobUrl;
+  previewName.textContent = file.name;
+  previewWrap.classList.add('show');
+
+  uploadImage(file);
+}
+
+// ── UPLOAD via proxy ──
+async function uploadImage(file) {
+  setStatus(true, 'Uploading image…');
+  loadingBar.classList.add('show');
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const resp = await fetch(UPLOAD_ENDPOINT, { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (resp.ok && data.statusCode === 200 && data.url) {
+      uploadedUrl = data.url;
+      setStatus(false, 'Ready! Tap Enhance to HD.');
+      enhanceBtn.disabled = false;
+    } else {
+      throw new Error(data?.message || data?.error || 'Upload failed');
+    }
+  } catch (err) {
+    setStatus(false, '');
+    showError('Image upload failed. Check connection and try again.\n' + err.message);
+    enhanceBtn.disabled = true;
+  }
+
+  loadingBar.classList.remove('show');
+}
+
+// ── REMOVE ──
+removeBtn.addEventListener('click', reset);
+
+function reset() {
+  uploadedUrl = null;
+  if (localBlobUrl) { URL.revokeObjectURL(localBlobUrl); localBlobUrl = null; }
+  previewImg.src = '';
+  previewWrap.classList.remove('show');
+  fileInput.value = '';
+  enhanceBtn.disabled = true;
+  setStatus(false, '');
+  hideError();
+  resultSection.classList.remove('show');
+}
+
+// ── ENHANCE via proxy ──
+enhanceBtn.addEventListener('click', async () => {
+  if (!uploadedUrl) { showError('No image uploaded yet.'); return; }
+
+  hideError();
+  resultSection.classList.remove('show');
+  enhanceBtn.disabled = true;
+  loadingBar.classList.add('show');
+  setStatus(true, 'Enhancing with AI…');
+
+  try {
+    const resp = await fetch(`${ENHANCE_ENDPOINT}?url=${encodeURIComponent(uploadedUrl)}`);
+
+    if (!resp.ok) {
+      let msg = `API error ${resp.status}`;
+      try { const j = await resp.json(); msg = j.message || j.error || msg; } catch {}
+      throw new Error(msg);
+    }
+
+    const ct = resp.headers.get('content-type') || '';
+
+    if (ct.startsWith('image/')) {
+      const blob = await resp.blob();
+      const hdUrl = URL.createObjectURL(blob);
+
+      resultImg.src    = hdUrl;
+      beforeImg.src    = localBlobUrl;
+      afterImg.src     = hdUrl;
+      downloadBtn.href = hdUrl;
+      openBtn.href     = hdUrl;
+
+      resultSection.classList.add('show');
+      setStatus(false, '');
+      setTimeout(() => resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    } else {
+      const j = await resp.json().catch(() => null);
+      throw new Error(j?.message || j?.error || 'Unexpected response from API.');
+    }
+
+  } catch (err) {
+    showError(err.message || 'Something went wrong. Please try again.');
+    setStatus(false, '');
+  }
+
+  loadingBar.classList.remove('show');
+  if (uploadedUrl) enhanceBtn.disabled = false;
+});
+
+// ── HELPERS ──
+function setStatus(loading, text) {
+  spinner.classList.toggle('show', loading);
+  statusMsg.textContent = text;
+}
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.classList.add('show');
+}
+
+function hideError() { errorBox.classList.remove('show'); }
+</script>
+</body>
+</html>
