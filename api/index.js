@@ -1,6 +1,6 @@
-const express = require('express');
-const multer  = require('multer');
-const fetch   = require('node-fetch');
+const express  = require('express');
+const multer   = require('multer');
+const fetch    = require('node-fetch');
 const FormData = require('form-data');
 
 const app    = express();
@@ -15,9 +15,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── UPLOAD PROXY ──
+// ─────────────────────────────────────────
 // POST /api/upload
-// Terima file dari frontend, teruskan ke restfull-api-2
+// Forward file ke restfull-api-2
+// ─────────────────────────────────────────
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file provided' });
@@ -37,14 +38,15 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const data = await upstream.json();
     res.status(upstream.status).json(data);
   } catch (err) {
-    console.error('Upload proxy error:', err);
+    console.error('[upload]', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── ENHANCE PROXY ──
+// ─────────────────────────────────────────
 // GET /api/enhance?url=...
-// Teruskan ke Theresa API, kembalikan gambar binary
+// Proxy ke Theresa HD API, stream balik gambar
+// ─────────────────────────────────────────
 app.get('/api/enhance', async (req, res) => {
   try {
     const { url } = req.query;
@@ -54,7 +56,6 @@ app.get('/api/enhance', async (req, res) => {
     const apiUrl = `https://api.theresav.biz.id/tools/hd?url=${encodeURIComponent(url)}&apikey=${THERESA_KEY}`;
 
     const upstream = await fetch(apiUrl);
-
     if (!upstream.ok) {
       const text = await upstream.text();
       return res.status(upstream.status).json({ error: text });
@@ -64,7 +65,34 @@ app.get('/api/enhance', async (req, res) => {
     res.setHeader('Content-Type', ct);
     upstream.body.pipe(res);
   } catch (err) {
-    console.error('Enhance proxy error:', err);
+    console.error('[enhance]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────
+// GET /api/removebg?url=...
+// Proxy ke Theresa Remove BG API, stream balik gambar
+// ─────────────────────────────────────────
+app.get('/api/removebg', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'Missing url param' });
+
+    const THERESA_KEY = process.env.THERESA_KEY || 'zMslo';
+    const apiUrl = `https://api.theresav.biz.id/tools/removebg?url=${encodeURIComponent(url)}&apikey=${THERESA_KEY}`;
+
+    const upstream = await fetch(apiUrl);
+    if (!upstream.ok) {
+      const text = await upstream.text();
+      return res.status(upstream.status).json({ error: text });
+    }
+
+    const ct = upstream.headers.get('content-type') || 'image/png';
+    res.setHeader('Content-Type', ct);
+    upstream.body.pipe(res);
+  } catch (err) {
+    console.error('[removebg]', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -76,4 +104,3 @@ if (require.main === module) {
 }
 
 module.exports = app;
-
